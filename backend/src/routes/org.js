@@ -74,67 +74,7 @@ router.patch('/settings', requireAuth, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ settings: data });
 });
-/** GET /api/org/channels — messaging channel connection status */
-router.get('/channels', requireAuth, async (req, res) => {
-  const { data, error } = await supabaseAdmin
-    .from('settings')
-    .select('whatsapp_number, whatsapp_phone_number_id, messenger_page_id')
-    .eq('organization_id', req.orgId)
-    .maybeSingle();
 
-  if (error) return res.status(500).json({ error: error.message });
-
-  const backendUrl = process.env.PUBLIC_BACKEND_URL || `${req.protocol}://${req.get('host')}`;
-  res.json({
-    channels: {
-      whatsapp: {
-        connected: !!data?.whatsapp_phone_number_id,
-        phoneNumberId: data?.whatsapp_phone_number_id || '',
-        displayNumber: data?.whatsapp_number || '',
-      },
-      messenger: {
-        connected: !!data?.messenger_page_id,
-        pageId: data?.messenger_page_id || '',
-      },
-    },
-    webhookUrl: `${backendUrl}/api/channels/webhook`,
-    verifyTokenHint: 'Set META_VERIFY_TOKEN in backend env; use the same value in Meta App dashboard.',
-  });
-});
-
-/** POST /api/org/channels — connect a messaging channel */
-router.post('/channels', requireAuth, async (req, res) => {
-  const { channel, externalId } = req.body;
-  const valid = { whatsapp: 'whatsapp_phone_number_id', messenger: 'messenger_page_id' };
-  if (!valid[channel]) return res.status(400).json({ error: 'channel must be "whatsapp" or "messenger"' });
-  if (!externalId) return res.status(400).json({ error: 'externalId is required' });
-
-  const updates = { [valid[channel]]: String(externalId).trim(), updated_at: new Date().toISOString() };
-  const { data, error } = await supabaseAdmin
-    .from('settings')
-    .update(updates)
-    .eq('organization_id', req.orgId)
-    .select('whatsapp_number, whatsapp_phone_number_id, messenger_page_id')
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ ok: true, settings: data });
-});
-
-/** DELETE /api/org/channels/:channel — disconnect a channel */
-router.delete('/channels/:channel', requireAuth, async (req, res) => {
-  const valid = { whatsapp: 'whatsapp_phone_number_id', messenger: 'messenger_page_id' };
-  const col = valid[req.params.channel];
-  if (!col) return res.status(400).json({ error: 'Unknown channel' });
-
-  const { error } = await supabaseAdmin
-    .from('settings')
-    .update({ [col]: null, updated_at: new Date().toISOString() })
-    .eq('organization_id', req.orgId);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ ok: true });
-});
 /** PATCH /api/org/profile — update org profile */
 router.patch('/profile', requireAuth, async (req, res) => {
   const allowed = ['name', 'industry', 'timezone'];
@@ -154,7 +94,7 @@ router.patch('/profile', requireAuth, async (req, res) => {
 
 /** POST /api/org/api-key — generate widget API key */
 router.post('/api-key', requireAuth, async (req, res) => {
-  const rawKey = 'chitra_' + crypto.randomBytes(24).toString('hex');
+  const rawKey = 'OneWayChat_' + crypto.randomBytes(24).toString('hex');
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
   const { error } = await supabaseAdmin

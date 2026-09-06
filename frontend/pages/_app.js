@@ -1,6 +1,6 @@
 import '../styles/globals.css';
 import { useState, useEffect } from 'react';
-import { supabase, fetchApi, getManagingOrg, setManagingOrg } from '../lib/supabaseClient';
+import { supabase, fetchApi, getValidSession } from '../lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import PostHog from '../components/PostHog';
@@ -10,14 +10,6 @@ export default function App({ Component, pageProps }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
-  const [managing, setManaging] = useState(null);
-
-  useEffect(() => {
-    const refresh = () => setManaging(getManagingOrg());
-    refresh();
-    window.addEventListener('chitra-managing-changed', refresh);
-    return () => window.removeEventListener('chitra-managing-changed', refresh);
-  }, [router.pathname]);
 
   useEffect(() => {
     let settled = false;
@@ -30,11 +22,12 @@ export default function App({ Component, pageProps }) {
     // Safety net: never leave the whole app stuck on the loading screen,
     // even if the stored session/localStorage is corrupted.
     const failsafe = setTimeout(finish, 10000);
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        setUser(data.session?.user || null);
-        if (data.session) fetchRole(data.session.access_token);
+    // Validate the stored session against Supabase — stale tokens are
+    // signed out automatically instead of producing 401s everywhere.
+    getValidSession()
+      .then((session) => {
+        setUser(session?.user || null);
+        if (session) fetchRole(session.access_token);
         finish();
       })
       .catch(() => finish());
@@ -66,7 +59,7 @@ export default function App({ Component, pageProps }) {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-3.5">
         <Link href="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-ink-900">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs font-bold text-white">C</span>
-          Chitra AI
+          OneWayChat
         </Link>
 
         {/* Desktop nav */}
@@ -79,10 +72,6 @@ export default function App({ Component, pageProps }) {
                 ['/bookings', 'Bookings'],
                 ['/leads', 'Leads'],
                 ['/inbox', 'Inbox'],
-                ['/channels', 'Channels'],
-                ['/agency', 'Clients'],
-                ['/billing', 'Billing'],
-                ['/settings', 'Settings'],
               ].map(([href, label]) => (
                 <Link
                   key={href}
@@ -128,7 +117,7 @@ export default function App({ Component, pageProps }) {
                 ['/knowledge', 'Docs'],
                 ['/bookings', 'Bookings'],
                 ['/leads', 'Leads'],
-                ['/settings', 'Settings'],
+                ['/inbox', 'Inbox'],
               ].map(([href, label]) => (
                 <Link
                   key={href}
@@ -172,22 +161,6 @@ export default function App({ Component, pageProps }) {
     <div className="min-h-screen">
       <PostHog />
       {nav}
-      {managing?.id && user && (
-        <div className="bg-brand-600 text-white">
-          <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-1.5 text-xs sm:px-6">
-            <span>
-              Managing client workspace: <strong>{managing.name || managing.id.slice(0, 8)}</strong>
-              {' '}— changes apply to this client
-            </span>
-            <button
-              onClick={() => { setManagingOrg(null); setManaging(null); router.push('/agency'); }}
-              className="ml-auto rounded bg-white/15 px-2 py-0.5 font-semibold transition-colors hover:bg-white/25"
-            >
-              Exit client
-            </button>
-          </div>
-        </div>
-      )}
       {loading ? (
         <div className="flex h-[80vh] items-center justify-center text-sm text-ink-400">Loading…</div>
       ) : (

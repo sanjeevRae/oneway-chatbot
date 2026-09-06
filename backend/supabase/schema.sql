@@ -1,17 +1,23 @@
 -- ============================================================
--- Chitra AI — Supabase Schema (Postgres + pgvector + RLS)
--- Run this in Supabase SQL Editor (or via supabase migration)
+-- OneWay Bot — Supabase Schema (Postgres + pgvector + RLS)
+-- Features: Dashboard (user + admin), Knowledge, Bookings,
+--           Leads, Inbox (chat history), usage quotas.
+-- Run this ONCE in the Supabase SQL Editor.
 -- ============================================================
 
 create extension if not exists vector;
 
--- ---------- Organizations ----------
+-- ---------- Organizations (tenants) ----------
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   owner_user_id uuid references auth.users(id) on delete cascade,
   industry text,
   timezone text default 'UTC',
+  -- plan/quota support (used by chat quota logic + admin dashboard)
+  plan text default 'free',
+  plan_expires_at timestamptz,
+  monthly_message_quota int,
   created_at timestamptz default now()
 );
 
@@ -21,17 +27,16 @@ create table if not exists public.profiles (
   organization_id uuid references public.organizations(id) on delete cascade,
   email text,
   full_name text,
-  role text default 'owner',
+  role text default 'owner', -- 'owner' | 'admin' (platform admin)
   created_at timestamptz default now()
 );
 
--- ---------- Settings ----------
+-- ---------- Bot settings ----------
 create table if not exists public.settings (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
   notify_email text,
-  whatsapp_number text,
   webhook_url text,
-  bot_name text default 'Chitra',
+  bot_name text default 'OneWay',
   welcome_message text default 'Hi! How can I help you today?',
   brand_color text default '#6366f1',
   updated_at timestamptz default now()
@@ -58,7 +63,6 @@ create table if not exists public.document_sections (
   created_at timestamptz default now()
 );
 
--- Index for fast similarity search
 create index if not exists document_sections_embedding_idx
   on public.document_sections using ivfflat (embedding vector_cosine_ops)
   with (lists = 100);
@@ -66,18 +70,19 @@ create index if not exists document_sections_embedding_idx
 create index if not exists document_sections_org_idx
   on public.document_sections(organization_id);
 
--- ---------- Chat History ----------
+-- ---------- Chat History (Inbox) ----------
 create table if not exists public.chat_history (
   id bigserial primary key,
   organization_id uuid not null references public.organizations(id) on delete cascade,
   session_id text not null,
   role text not null check (role in ('user','assistant')),
   message text not null,
-  channel text default 'web' check (channel in ('web','whatsapp','messenger','instagram')),
+  channel text default 'web',
   created_at timestamptz default now()
 );
 
-create index chat_history_org_session_idx on public.chat_history(organization_id, session_id, created_at);
+create index if not exists chat_history_org_session_idx
+  on public.chat_history(organization_id, session_id, created_at);
 
 -- ---------- Bookings ----------
 create table if not exists public.bookings (
@@ -90,7 +95,6 @@ create table if not exists public.bookings (
   details text,
   reference text unique,
   status text default 'confirmed' check (status in ('confirmed','cancelled','completed')),
-  cal_event_uid text,
   created_at timestamptz default now()
 );
 
@@ -105,7 +109,7 @@ create table if not exists public.leads (
   created_at timestamptz default now()
 );
 
--- ---------- Usage Tracking (free-tier quotas) ----------
+-- ---------- Usage Tracking (quotas) ----------
 create table if not exists public.usage_events (
   id bigserial primary key,
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -114,16 +118,8 @@ create table if not exists public.usage_events (
   created_at timestamptz default now()
 );
 
-create index usage_events_org_time_idx on public.usage_events(organization_id, event_type, created_at);
-
--- ---------- API Keys (for widget / external access) ----------
-create table if not exists public.api_keys (
-  id serial primary key,
-  organization_id uuid not null references public.organizations(id) on delete cascade,
-  key_hash text not null,
-  label text,
-  created_at timestamptz default now()
-);
+create index if not exists usage_events_org_time_idx
+  on public.usage_events(organization_id, event_type, created_at);
 
 -- ============================================================
 -- Helper: get org of current user
@@ -145,7 +141,6 @@ alter table public.chat_history       enable row level security;
 alter table public.bookings           enable row level security;
 alter table public.leads              enable row level security;
 alter table public.usage_events       enable row level security;
-alter table public.api_keys           enable row level security;
 
 -- Organizations: owner sees own org
 drop policy if exists "org_select_own" on public.organizations;
@@ -177,7 +172,7 @@ create policy "profile_update_own" on public.profiles
 do $$
 declare t text;
 begin
-  foreach t in array array['settings','documents','document_sections','chat_history','bookings','leads','usage_events','api_keys']
+  foreach t in array array['settings','documents','document_sections','chat_history','bookings','leads','usage_events']
   loop
     execute format('drop policy if exists "%s_org_all" on public.%I;', t, t);
     execute format(

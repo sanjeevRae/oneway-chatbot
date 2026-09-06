@@ -1,6 +1,6 @@
-# Chitra AI — Frontend
+# OneWayChat — Frontend
 
-Next.js 14 + Tailwind dashboard for the Chitra AI platform. Deployed on **Vercel**.
+Next.js 14 + Tailwind dashboard for the OneWayChat platform. Deployed on **Vercel**.
 
 ## Pages
 | Route | Description |

@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
     let messageQuota;
     if (planActive) {
       messageQuota = orgPlan.monthly_message_quota
-        ?? require('../services/payments').PLAN_QUOTAS[orgPlan.plan].messagesPerMonth;
+        ?? config.freeTierQuotas.messagesPerMonth;
     } else {
       messageQuota = orgPlan?.monthly_message_quota ?? config.freeTierQuotas.messagesPerMonth;
     }

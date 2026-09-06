@@ -64,7 +64,7 @@ async function importNotion({ organizationId, url, title }) {
   }
 
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'ChitraAI-Bot/1.0 (+https://chitra.ai)' },
+    headers: { 'User-Agent': 'OneWayChatAI-Bot/1.0 (+https://OneWayChat.ai)' },
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) {

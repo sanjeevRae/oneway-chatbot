@@ -56,17 +56,40 @@ export async function api(path, options = {}) {
     ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     ...(options.headers || {}),
   };
-  // Agency "manage as client": operate on the client workspace
-  const managing = getManagingOrg();
-  if (managing?.id) headers['x-org-id'] = managing.id;
   const res = await fetchApi(path, { ...options, headers });
+  // Self-heal: a 401 means the stored session is stale/invalid — sign out
+  // and send the user to login instead of leaving them on a broken page.
+  if (res.status === 401 && !path.startsWith('/api/auth')) {
+    try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    throw new Error('Your session expired. Please log in again.');
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
 
+/**
+ * Validate the stored session against Supabase. Returns the session if it is
+ * still valid; otherwise signs out locally (clearing stale tokens) and
+ * returns null. Use this on app mount instead of trusting getSession().
+ */
+export async function getValidSession() {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      return null;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  } catch {
+    return null;
+  }
+}
+
 /* ---------- "Manage as client" (agency org switching) ---------- */
-const MANAGING_KEY = 'chitra-managing-org';
+const MANAGING_KEY = 'OneWayChat-managing-org';
 
 /** Set the client workspace being managed ({ id, name }) or null to stop. */
 export function setManagingOrg(org) {
@@ -74,7 +97,7 @@ export function setManagingOrg(org) {
     if (org && org.id) sessionStorage.setItem(MANAGING_KEY, JSON.stringify(org));
     else sessionStorage.removeItem(MANAGING_KEY);
   } catch {}
-  window.dispatchEvent(new Event('chitra-managing-changed'));
+  window.dispatchEvent(new Event('OneWayChat-managing-changed'));
 }
 
 /** The client workspace currently being managed, or null. */

@@ -35,7 +35,7 @@ export default function Signup() {
     if (error) return setError(error.message);
 
     // The DB trigger creates org + profile + settings automatically.
-    router.push('/onboarding');
+    router.push('/dashboard');
   }
 
   return (

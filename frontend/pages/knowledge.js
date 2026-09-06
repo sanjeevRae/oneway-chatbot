@@ -45,7 +45,8 @@ export default function Knowledge() {
     e.preventDefault();
     setBusy(true); setError('');
     try {
-      await api('/api/knowledge/text', { method: 'POST', body: JSON.stringify(text) });
+      // Backend expects { title, text }
+      await api('/api/knowledge/text', { method: 'POST', body: JSON.stringify({ title: text.title, text: text.body }) });
       setText({ title: '', body: '' });
       load();
     } catch (err) { setError(err.message); }

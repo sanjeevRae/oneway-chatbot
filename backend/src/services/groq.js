@@ -2,12 +2,7 @@ const Groq = require('groq-sdk');
 const config = require('../config');
 
 let groq1 = null;
-let groq2 = null;
-function getGroq(which = 1) {
-  if (which === 2) {
-    if (!groq2) groq2 = new Groq({ apiKey: config.groq2.apiKey });
-    return groq2;
-  }
+function getGroq() {
   if (!groq1) groq1 = new Groq({ apiKey: config.groq.apiKey });
   return groq1;
 }
@@ -15,17 +10,15 @@ function getGroq(which = 1) {
 /**
  * Provider abstraction.
  * Fallback order:
- *   1. Groq primary (GROQ_API_KEY / GROQ_MODEL)
- *   2. Groq secondary (GROQ_API_KEY_2 / GROQ_MODEL_2)
- *   3. OpenRouter (OPENROUTER_API_KEY / OPENROUTER_MODEL)
+ *   1. Groq (GROQ_API_KEY / GROQ_MODEL)
+ *   2. OpenRouter (OPENROUTER_API_KEY / OPENROUTER_MODEL)
  */
-const cooldowns = { groq1: 0, groq2: 0, openrouter: 0 }; // epoch ms until which a provider is skipped
+const cooldowns = { groq1: 0, openrouter: 0 }; // epoch ms until which a provider is skipped
 
-function groqRequest(messages, tools, which) {
-  const cfg = which === 2 ? config.groq2 : config.groq;
+function groqRequest(messages, tools) {
   return () =>
-    getGroq(which).chat.completions.create({
-      model: cfg.model,
+    getGroq().chat.completions.create({
+      model: config.groq.model,
       messages,
       temperature: 0.4,
       max_tokens: 800,
@@ -37,11 +30,7 @@ async function callChatCompletion(messages, tools) {
   const providers = [];
 
   if (config.groq.apiKey && Date.now() >= cooldowns.groq1) {
-    providers.push({ name: 'groq', run: groqRequest(messages, tools, 1), key: 'groq1' });
-  }
-
-  if (config.groq2.apiKey && Date.now() >= cooldowns.groq2) {
-    providers.push({ name: 'groq-2', run: groqRequest(messages, tools, 2), key: 'groq2' });
+    providers.push({ name: 'groq', run: groqRequest(messages, tools), key: 'groq1' });
   }
 
   if (config.openrouter.apiKey && Date.now() >= cooldowns.openrouter) {
@@ -73,9 +62,9 @@ async function callChatCompletion(messages, tools) {
     });
   }
 
-  // If everything is in cooldown, still try Groq primary as last resort
+  // If everything is in cooldown, still try Groq as last resort
   if (providers.length === 0 && config.groq.apiKey) {
-    providers.push({ name: 'groq', run: groqRequest(messages, tools, 1), key: 'groq1' });
+    providers.push({ name: 'groq', run: groqRequest(messages, tools), key: 'groq1' });
   }
 
   let lastErr;
@@ -119,7 +108,7 @@ function buildSystemPrompt(org, settings, contextChunks, channel = 'web') {
 - Keep replies short (under 150 words). For lists, use simple dashes or numbered lines like "1." with line breaks.
 - Use emojis sparingly where friendly.`;
 
-  return `You are "${settings?.bot_name || 'Chitra'}", the friendly AI assistant for the business "${org.name}"${
+  return `You are "${settings?.bot_name || 'OneWayChat'}", the friendly AI assistant for the business "${org.name}"${
     org.industry ? ` (industry: ${org.industry})` : ''
   }.
 

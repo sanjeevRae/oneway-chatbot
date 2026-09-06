@@ -26,7 +26,7 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-base font-bold text-white">C</div>
           <h1 className="h-display text-2xl">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-ink-500">Log in to your Chitra assistant</p>
+          <p className="mt-1.5 text-sm text-ink-500">Log in to your OneWayChat assistant</p>
         </div>
 
         <div className="card p-7 sm:p-8">

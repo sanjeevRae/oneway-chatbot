@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: chitra-ai-backend
+    name: onewaychat-backend
     env: node
     rootDir: backend
     buildCommand: npm install

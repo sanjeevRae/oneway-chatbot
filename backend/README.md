@@ -1,6 +1,6 @@
-# Chitra AI — Backend
+# OneWayChat — Backend
 
-Node.js/Express API for the Chitra AI multi-tenant assistant platform. Deployed on **Render**.
+Node.js/Express API for the OneWayChat multi-tenant assistant platform. Deployed on **Render**.
 
 ## Features
 - 🔐 Supabase JWT auth with tenant (`organization_id`) resolution
@@ -59,7 +59,7 @@ Run `supabase/schema.sql` in the Supabase SQL Editor once. It creates all tables
 
 ## OpenWA (self-hosted WhatsApp) integration
 
-Chitra can answer WhatsApp messages through a **self-hosted [OpenWA](https://github.com/rmyndharis/OpenWA) gateway** instead of the Meta WhatsApp Cloud API. OpenWA runs as an external service (e.g. on your own machine via Docker) and is reached from Render through a **Cloudflare Tunnel**. Inbound WhatsApp messages reuse Chitra's **existing** RAG/Groq/tools pipeline — no duplicate AI logic.
+OneWayChat can answer WhatsApp messages through a **self-hosted [OpenWA](https://github.com/rmyndharis/OpenWA) gateway** instead of the Meta WhatsApp Cloud API. OpenWA runs as an external service (e.g. on your own machine via Docker) and is reached from Render through a **Cloudflare Tunnel**. Inbound WhatsApp messages reuse OneWayChat's **existing** RAG/Groq/tools pipeline — no duplicate AI logic.
 
 ### Message flow
 ```
